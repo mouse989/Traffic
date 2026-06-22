@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+venv/
+.venv/
+env/
+.env
+*.env
+
+# PyInstaller
+backend/dist/
+backend/build/
+*.spec.bak
+
+# SQLite database (data, not schema)
+*.db
+*.sqlite
+*.sqlite3
+
+# Node.js
+node_modules/
+frontend/dist/
+frontend/.next/
+frontend/build/
+.npm
+*.log
+npm-debug.log*
+
+# Flutter / Dart
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+mobile/.pub-cache/
+mobile/.pub/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/key.properties
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+Thumbs.db
+
+# Static assets copied during build (regenerated)
+backend/app/static/
+
+# Alembic env-specific
+backend/alembic.ini.local
