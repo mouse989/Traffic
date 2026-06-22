@@ -53,12 +53,20 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-4">
             {role === 'ADMIN' && (
-              <button
-                onClick={() => navigate('/users')}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Quản lý người dùng
-              </button>
+              <>
+                <button
+                  onClick={() => navigate('/users')}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Quản lý người dùng
+                </button>
+                <button
+                  onClick={() => navigate('/mobile')}
+                  className="text-sm text-green-600 hover:text-green-800 font-medium"
+                >
+                  Scanner Mobile
+                </button>
+              </>
             )}
             <span className="text-sm text-gray-600">
               Xin chào, <strong>{username}</strong>

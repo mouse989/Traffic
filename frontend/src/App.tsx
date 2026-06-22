@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
+import MobileScanner from './pages/MobileScanner'
 import ProtectedRoute from './components/ProtectedRoute'
 
 const qc = new QueryClient({
@@ -30,6 +31,15 @@ export default function App() {
             element={
               <ProtectedRoute requireAdmin>
                 <Users />
+              </ProtectedRoute>
+            }
+          />
+          {/* Mobile web scanner - accessible to both STAFF and ADMIN */}
+          <Route
+            path="/mobile"
+            element={
+              <ProtectedRoute>
+                <MobileScanner />
               </ProtectedRoute>
             }
           />

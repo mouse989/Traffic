@@ -22,7 +22,9 @@ export default function Login() {
     try {
       const tokens = await login(username.trim(), password)
       setTokens(tokens.access_token, tokens.refresh_token)
-      navigate('/')
+      // ADMIN → dashboard, STAFF → mobile scanner
+      const store = useAuthStore.getState()
+      navigate(store.role === 'ADMIN' ? '/' : '/mobile')
     } catch {
       setError('Sai tên đăng nhập hoặc mật khẩu')
     } finally {
