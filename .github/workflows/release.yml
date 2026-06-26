@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      build_note:
+        description: 'Ghi chú build (tuỳ chọn)'
+        required: false
+        default: 'Manual build'
 
 jobs:
   build-linux:
@@ -84,6 +90,7 @@ jobs:
 
   release:
     needs: [build-linux, build-windows]
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
