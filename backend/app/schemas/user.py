@@ -7,6 +7,8 @@ class UserCreate(BaseModel):
     password: str
     role: Role = Role.STAFF
     can_upload_photo: bool = False
+    can_access_qr_devices: bool = False
+    can_access_patrol: bool = False
 
 
 class UserRead(BaseModel):
@@ -15,6 +17,8 @@ class UserRead(BaseModel):
     role: Role
     is_active: bool
     can_upload_photo: bool
+    can_access_qr_devices: bool
+    can_access_patrol: bool
     created_at: str
 
     model_config = {"from_attributes": True}
@@ -23,6 +27,8 @@ class UserRead(BaseModel):
 class UserUpdate(BaseModel):
     is_active: bool | None = None
     can_upload_photo: bool | None = None
+    can_access_qr_devices: bool | None = None
+    can_access_patrol: bool | None = None
 
 
 class PasswordReset(BaseModel):

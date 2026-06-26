@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.config import settings
-from app.models.user import User
+from app.models.user import User, Role
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -18,12 +18,20 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(subject: str, role: str, can_upload_photo: bool = False) -> str:
+def create_access_token(
+    subject: str,
+    role: str,
+    can_upload_photo: bool = False,
+    can_access_qr_devices: bool = False,
+    can_access_patrol: bool = False,
+) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": subject,
         "role": role,
         "can_upload_photo": can_upload_photo,
+        "can_access_qr_devices": can_access_qr_devices,
+        "can_access_patrol": can_access_patrol,
         "type": "access",
         "exp": expire,
     }
@@ -66,3 +74,13 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> U
     if not verify_password(password, user.password_hash):
         return None
     return user
+
+
+def token_permissions(user: User) -> dict:
+    """Build permission kwargs for create_access_token from a User object."""
+    is_admin = user.role == Role.ADMIN
+    return {
+        "can_upload_photo": user.can_upload_photo,
+        "can_access_qr_devices": is_admin or user.can_access_qr_devices,
+        "can_access_patrol": is_admin or user.can_access_patrol,
+    }

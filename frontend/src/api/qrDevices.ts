@@ -45,6 +45,17 @@ export async function getPatrolToday(date?: string) {
   return resp.data
 }
 
+export async function exportPatrolCsv(date?: string): Promise<void> {
+  const params = date ? { date } : {}
+  const resp = await client.get('/api/patrol/today/export', { params, responseType: 'blob' })
+  const url = URL.createObjectURL(resp.data)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `tuan-tra-${date ?? 'hom-nay'}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // Device field config API
 export async function getDeviceFieldConfigs(): Promise<DeviceFieldConfig[]> {
   const resp = await client.get<DeviceFieldConfig[]>('/api/device-fields')

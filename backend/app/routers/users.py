@@ -1,6 +1,6 @@
 import uuid
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -12,6 +12,8 @@ from app.schemas.user import UserCreate, UserRead, UserUpdate
 from app.services.auth_service import hash_password, get_user_by_username
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+TZ7 = timezone(timedelta(hours=7))
 
 
 @router.get("", response_model=list[UserRead])
@@ -40,7 +42,9 @@ async def create_user(
         role=body.role,
         is_active=True,
         can_upload_photo=body.can_upload_photo,
-        created_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        can_access_qr_devices=body.can_access_qr_devices,
+        can_access_patrol=body.can_access_patrol,
+        created_at=datetime.now(TZ7).strftime("%Y-%m-%d %H:%M:%S"),
     )
     db.add(user)
     await db.commit()
@@ -59,12 +63,18 @@ async def update_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
     if body.is_active is not None:
         if user.id == current_user.id and not body.is_active:
             raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
         user.is_active = body.is_active
     if body.can_upload_photo is not None:
         user.can_upload_photo = body.can_upload_photo
+    if body.can_access_qr_devices is not None:
+        user.can_access_qr_devices = body.can_access_qr_devices
+    if body.can_access_patrol is not None:
+        user.can_access_patrol = body.can_access_patrol
+
     await db.commit()
     await db.refresh(user)
     return UserRead.model_validate(user)

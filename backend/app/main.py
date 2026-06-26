@@ -1,10 +1,7 @@
 import os
 import sys
-import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
-
-TZ7 = timezone(timedelta(hours=7))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,9 +14,11 @@ from app.database import engine, Base, AsyncSessionLocal
 from app.models import user, scan_log, qr_device, device_field_config  # noqa: F401 – register tables
 from app.routers import auth, scans, users, qr_devices, patrol, device_fields
 
+TZ7 = timezone(timedelta(hours=7))
+
 
 async def _ensure_admin(db):
-    """Create default admin account on first run if no users exist."""
+    """Create default admin on first run if no users exist."""
     from sqlalchemy import select, func
     from app.models.user import User, Role
     from app.services.auth_service import hash_password
@@ -34,6 +33,9 @@ async def _ensure_admin(db):
             password_hash=hash_password(default_password),
             role=Role.ADMIN,
             is_active=True,
+            can_upload_photo=False,
+            can_access_qr_devices=False,
+            can_access_patrol=False,
             created_at=datetime.now(TZ7).strftime("%Y-%m-%d %H:%M:%S"),
         )
         db.add(admin)
@@ -42,21 +44,92 @@ async def _ensure_admin(db):
         print("[Traffic] CHANGE THIS PASSWORD immediately via the admin panel!")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Create tables (idempotent - safe to run every startup)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        # Migrate existing DBs: add columns if not present
-        for migration_sql in [
+async def _run_migrations(conn):
+    """
+    Safe migrations for rolling deployments on Vibe Code / any host.
+
+    Strategy:
+    - Fresh DB: create_all already built all tables with correct schema → nothing to do here
+    - Old DB with role CHECK constraint: recreate users table to support GIAM_SAT role
+    - Old DB missing columns: ALTER TABLE to add them
+    """
+    # --- users table migration ---
+    result = await conn.execute(
+        text("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")
+    )
+    users_sql = result.scalar() or ""
+
+    # Detect old schema: has CHECK constraint without GIAM_SAT
+    old_role_constraint = "CHECK" in users_sql and "GIAM_SAT" not in users_sql
+
+    if old_role_constraint:
+        # Recreate users table: remove CHECK constraint, add new permission columns
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS _users_tmp (
+                id VARCHAR(32) NOT NULL,
+                username VARCHAR(50) NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(20) NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                can_upload_photo INTEGER NOT NULL DEFAULT 0,
+                can_access_qr_devices INTEGER NOT NULL DEFAULT 0,
+                can_access_patrol INTEGER NOT NULL DEFAULT 0,
+                created_at VARCHAR(32) NOT NULL,
+                PRIMARY KEY (id)
+            )
+        """))
+        # Copy data — handle whether can_upload_photo exists in old table
+        try:
+            await conn.execute(text("""
+                INSERT OR IGNORE INTO _users_tmp
+                    (id, username, password_hash, role, is_active, can_upload_photo, created_at)
+                SELECT id, username, password_hash, role, is_active,
+                       COALESCE(can_upload_photo, 0), created_at
+                FROM users
+            """))
+        except Exception:
+            await conn.execute(text("""
+                INSERT OR IGNORE INTO _users_tmp
+                    (id, username, password_hash, role, is_active, created_at)
+                SELECT id, username, password_hash, role, is_active, created_at
+                FROM users
+            """))
+        await conn.execute(text("DROP TABLE IF EXISTS users"))
+        await conn.execute(text("ALTER TABLE _users_tmp RENAME TO users"))
+        await conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users (username)"
+        ))
+        print("[Traffic] DB migration: users table updated (GIAM_SAT role + permission columns)")
+    else:
+        # Table exists with correct schema or is new — just add missing columns
+        for col_sql in [
             "ALTER TABLE users ADD COLUMN can_upload_photo INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE qr_devices ADD COLUMN device_type TEXT",
-            "ALTER TABLE qr_devices ADD COLUMN extra_data TEXT",
+            "ALTER TABLE users ADD COLUMN can_access_qr_devices INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN can_access_patrol INTEGER NOT NULL DEFAULT 0",
         ]:
             try:
-                await conn.execute(text(migration_sql))
+                await conn.execute(text(col_sql))
             except Exception:
                 pass  # Column already exists
+
+    # --- qr_devices table migration ---
+    for col_sql in [
+        "ALTER TABLE qr_devices ADD COLUMN device_type TEXT",
+        "ALTER TABLE qr_devices ADD COLUMN extra_data TEXT",
+    ]:
+        try:
+            await conn.execute(text(col_sql))
+        except Exception:
+            pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        # Create any missing tables (idempotent)
+        await conn.run_sync(Base.metadata.create_all)
+        # Apply rolling migrations for existing databases
+        await _run_migrations(conn)
 
     async with AsyncSessionLocal() as db:
         await _ensure_admin(db)
@@ -93,14 +166,11 @@ app.include_router(device_fields.router)
 # Serve React frontend static files
 def _get_static_dir() -> str | None:
     if getattr(sys, "frozen", False):
-        # Running inside PyInstaller bundle
         return os.path.join(sys._MEIPASS, "static")
-    # Development: look for frontend/dist relative to project root
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     dist = os.path.join(project_root, "frontend", "dist")
     if os.path.isdir(dist):
         return dist
-    # Also check if static dir was copied here for build
     local_static = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
     if os.path.isdir(local_static):
         return local_static
@@ -116,7 +186,6 @@ if _static_dir:
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
-        # API and auth routes handled above - this catches everything else
         index = os.path.join(_static_dir, "index.html")
         if os.path.isfile(index):
             return FileResponse(index)
@@ -129,9 +198,4 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        app,
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=False,
-    )
+    uvicorn.run(app, host=settings.HOST, port=settings.PORT, reload=False)

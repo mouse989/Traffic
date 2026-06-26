@@ -7,6 +7,7 @@ import MobileScanner from './pages/MobileScanner'
 import QrDevices from './pages/QrDevices'
 import Patrol from './pages/Patrol'
 import ProtectedRoute from './components/ProtectedRoute'
+import { useAuthStore } from './store/authStore'
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -14,14 +15,26 @@ const qc = new QueryClient({
   },
 })
 
+function RootRedirect() {
+  const { role, canAccessPatrol, canAccessQrDevices } = useAuthStore()
+  if (role === 'ADMIN') return <Navigate to="/dashboard" replace />
+  if (role === 'GIAM_SAT') {
+    if (canAccessPatrol) return <Navigate to="/patrol" replace />
+    if (canAccessQrDevices) return <Navigate to="/qr-devices" replace />
+    return <Navigate to="/mobile" replace />
+  }
+  return <Navigate to="/mobile" replace />
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={qc}>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/" element={<RootRedirect />} />
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute requireAdmin>
                 <Dashboard />
@@ -39,7 +52,7 @@ export default function App() {
           <Route
             path="/qr-devices"
             element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requirePermission="qr_devices">
                 <QrDevices />
               </ProtectedRoute>
             }
@@ -47,7 +60,7 @@ export default function App() {
           <Route
             path="/patrol"
             element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requirePermission="patrol">
                 <Patrol />
               </ProtectedRoute>
             }

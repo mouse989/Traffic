@@ -7,9 +7,11 @@ export interface TokenResponse {
 export interface User {
   id: string
   username: string
-  role: 'ADMIN' | 'STAFF'
+  role: 'ADMIN' | 'GIAM_SAT' | 'STAFF'
   is_active: boolean
   can_upload_photo: boolean
+  can_access_qr_devices: boolean
+  can_access_patrol: boolean
   created_at: string
 }
 
@@ -34,8 +36,10 @@ export interface ScanPage {
 export interface UserCreate {
   username: string
   password: string
-  role: 'ADMIN' | 'STAFF'
+  role: 'ADMIN' | 'GIAM_SAT' | 'STAFF'
   can_upload_photo?: boolean
+  can_access_qr_devices?: boolean
+  can_access_patrol?: boolean
 }
 
 export interface QrDevice {
@@ -63,10 +67,24 @@ export interface DeviceStatus {
   device_id: string
   name: string
   location: string
+  device_type: string | null
   qr_text: string
   scanned: boolean
   scan_count: number
   last_scanned_at: string | null
+}
+
+export interface DeviceTypeStats {
+  device_type: string
+  total: number
+  scanned: number
+  not_scanned: number
+}
+
+export interface UserScanStats {
+  username: string
+  unique_devices: number
+  total_scans: number
 }
 
 export interface PatrolStats {
@@ -74,5 +92,7 @@ export interface PatrolStats {
   scanned_today: number
   scan_count_today: number
   devices: DeviceStatus[]
+  device_type_stats: DeviceTypeStats[]
+  user_stats: UserScanStats[]
   date: string
 }

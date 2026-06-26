@@ -4,8 +4,10 @@ interface AuthState {
   accessToken: string | null
   refreshToken: string | null
   username: string | null
-  role: 'ADMIN' | 'STAFF' | null
+  role: 'ADMIN' | 'GIAM_SAT' | 'STAFF' | null
   canUploadPhoto: boolean
+  canAccessQrDevices: boolean
+  canAccessPatrol: boolean
   setTokens: (access: string, refresh: string) => void
   clear: () => void
 }
@@ -28,18 +30,22 @@ export const useAuthStore = create<AuthState>((set) => ({
   username: initial?.username ?? null,
   role: initial?.role ?? null,
   canUploadPhoto: initial?.canUploadPhoto ?? false,
+  canAccessQrDevices: initial?.canAccessQrDevices ?? false,
+  canAccessPatrol: initial?.canAccessPatrol ?? false,
 
   setTokens: (access, refresh) => {
     const payload = parseJwtPayload(access)
     const username = payload.sub as string
-    const role = payload.role as 'ADMIN' | 'STAFF'
+    const role = payload.role as 'ADMIN' | 'GIAM_SAT' | 'STAFF'
     const canUploadPhoto = (payload.can_upload_photo as boolean) ?? false
-    sessionStorage.setItem('auth', JSON.stringify({ accessToken: access, refreshToken: refresh, username, role, canUploadPhoto }))
-    set({ accessToken: access, refreshToken: refresh, username, role, canUploadPhoto })
+    const canAccessQrDevices = (payload.can_access_qr_devices as boolean) ?? false
+    const canAccessPatrol = (payload.can_access_patrol as boolean) ?? false
+    sessionStorage.setItem('auth', JSON.stringify({ accessToken: access, refreshToken: refresh, username, role, canUploadPhoto, canAccessQrDevices, canAccessPatrol }))
+    set({ accessToken: access, refreshToken: refresh, username, role, canUploadPhoto, canAccessQrDevices, canAccessPatrol })
   },
 
   clear: () => {
     sessionStorage.removeItem('auth')
-    set({ accessToken: null, refreshToken: null, username: null, role: null, canUploadPhoto: false })
+    set({ accessToken: null, refreshToken: null, username: null, role: null, canUploadPhoto: false, canAccessQrDevices: false, canAccessPatrol: false })
   },
 }))

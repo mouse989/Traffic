@@ -7,15 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
-from app.dependencies import require_role
-from app.models.user import User, Role
+from app.dependencies import require_qr_access
+from app.models.user import User
 from app.models.qr_device import QrDevice
 from app.models.device_field_config import DeviceFieldConfig
 from app.schemas.qr_device import QrDeviceCreate, QrDeviceUpdate, QrDeviceRead
 
 router = APIRouter(prefix="/api/qr-devices", tags=["qr-devices"])
 
-_admin = Depends(require_role(Role.ADMIN))
+_qr = Depends(require_qr_access())
 
 
 async def _get_custom_fields(db: AsyncSession) -> list[DeviceFieldConfig]:
@@ -28,7 +28,7 @@ async def _get_custom_fields(db: AsyncSession) -> list[DeviceFieldConfig]:
 @router.get("", response_model=list[QrDeviceRead])
 async def list_devices(
     db: AsyncSession = Depends(get_db),
-    _: User = _admin,
+    _: User = _qr,
 ):
     result = await db.execute(select(QrDevice).order_by(QrDevice.device_id))
     return [QrDeviceRead.model_validate(d) for d in result.scalars().all()]
@@ -38,7 +38,7 @@ async def list_devices(
 async def create_device(
     body: QrDeviceCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = _admin,
+    _: User = _qr,
 ):
     existing = await db.execute(select(QrDevice).where(QrDevice.device_id == body.device_id))
     if existing.scalar_one_or_none():
@@ -57,7 +57,7 @@ async def update_device(
     device_pk: str,
     body: QrDeviceUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = _admin,
+    _: User = _qr,
 ):
     device = await db.get(QrDevice, device_pk)
     if not device:
@@ -76,7 +76,7 @@ async def update_device(
 async def delete_device(
     device_pk: str,
     db: AsyncSession = Depends(get_db),
-    _: User = _admin,
+    _: User = _qr,
 ):
     device = await db.get(QrDevice, device_pk)
     if not device:
@@ -88,7 +88,7 @@ async def delete_device(
 @router.get("/import/template")
 async def download_import_template(
     db: AsyncSession = Depends(get_db),
-    _: User = _admin,
+    _: User = _qr,
 ):
     """Download CSV template with headers based on current field config."""
     custom_fields = await _get_custom_fields(db)
@@ -116,7 +116,7 @@ async def download_import_template(
 async def import_csv(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    _: User = _admin,
+    _: User = _qr,
 ):
     """Import devices from CSV. Required columns: device_id,name,location,qr_text"""
     if not file.filename or not file.filename.endswith(".csv"):

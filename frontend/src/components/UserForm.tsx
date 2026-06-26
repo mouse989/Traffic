@@ -9,8 +9,10 @@ interface Props {
 export default function UserForm({ onSubmit, onClose }: Props) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'ADMIN' | 'STAFF'>('STAFF')
+  const [role, setRole] = useState<'ADMIN' | 'GIAM_SAT' | 'STAFF'>('STAFF')
   const [canUploadPhoto, setCanUploadPhoto] = useState(false)
+  const [canAccessQrDevices, setCanAccessQrDevices] = useState(false)
+  const [canAccessPatrol, setCanAccessPatrol] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -23,7 +25,14 @@ export default function UserForm({ onSubmit, onClose }: Props) {
     setLoading(true)
     setError('')
     try {
-      await onSubmit({ username: username.trim(), password, role, can_upload_photo: canUploadPhoto })
+      await onSubmit({
+        username: username.trim(),
+        password,
+        role,
+        can_upload_photo: canUploadPhoto,
+        can_access_qr_devices: canAccessQrDevices,
+        can_access_patrol: canAccessPatrol,
+      })
       onClose()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -62,24 +71,56 @@ export default function UserForm({ onSubmit, onClose }: Props) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as 'ADMIN' | 'STAFF')}
+              onChange={(e) => {
+                const r = e.target.value as 'ADMIN' | 'GIAM_SAT' | 'STAFF'
+                setRole(r)
+                if (r !== 'GIAM_SAT') {
+                  setCanAccessQrDevices(false)
+                  setCanAccessPatrol(false)
+                }
+              }}
               className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="STAFF">STAFF - Nhân viên</option>
+              <option value="GIAM_SAT">GIÁM SÁT - Supervisor</option>
               <option value="ADMIN">ADMIN - Quản trị viên</option>
             </select>
           </div>
-          <div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={canUploadPhoto}
-                onChange={(e) => setCanUploadPhoto(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600"
-              />
-              <span className="text-gray-700">Cho phép chọn ảnh từ thư viện (Mobile Scanner)</span>
-            </label>
-          </div>
+
+          {role === 'GIAM_SAT' && (
+            <div className="border rounded-lg p-3 bg-amber-50 space-y-2">
+              <p className="text-xs font-medium text-amber-800 mb-2">Phân quyền phân hệ (Giám sát)</p>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={canAccessQrDevices}
+                  onChange={(e) => setCanAccessQrDevices(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                />
+                <span className="text-gray-700">Quản lý QRCode</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={canAccessPatrol}
+                  onChange={(e) => setCanAccessPatrol(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                />
+                <span className="text-gray-700">Tuần tra</span>
+              </label>
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={canUploadPhoto}
+              onChange={(e) => setCanUploadPhoto(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600"
+            />
+            <span className="text-gray-700">Cho phép chọn ảnh từ thư viện (Mobile Scanner)</span>
+          </label>
+
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <div className="flex gap-3 pt-2">
             <button

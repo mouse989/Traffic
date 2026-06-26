@@ -25,3 +25,13 @@ export async function setUploadPhotoPermission(id: string, can_upload_photo: boo
   const resp = await client.patch<User>(`/api/users/${id}`, { can_upload_photo })
   return resp.data
 }
+
+export async function setQrDevicesPermission(id: string, can_access_qr_devices: boolean): Promise<User> {
+  const resp = await client.patch<User>(`/api/users/${id}`, { can_access_qr_devices })
+  return resp.data
+}
+
+export async function setPatrolPermission(id: string, can_access_patrol: boolean): Promise<User> {
+  const resp = await client.patch<User>(`/api/users/${id}`, { can_access_patrol })
+  return resp.data
+}
