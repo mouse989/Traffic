@@ -3,10 +3,13 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
+# SQLite needs check_same_thread=False; PostgreSQL does not accept that arg
+_connect_args = {} if settings.is_postgres else {"check_same_thread": False}
+
 engine = create_async_engine(
     settings.database_url,
     echo=False,
-    connect_args={"check_same_thread": False},
+    connect_args=_connect_args,
 )
 
 AsyncSessionLocal = async_sessionmaker(

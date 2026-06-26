@@ -46,24 +46,52 @@ async def _ensure_admin(db):
 
 async def _run_migrations(conn):
     """
-    Safe migrations for rolling deployments on Vibe Code / any host.
+    Safe migrations for rolling deployments.
 
-    Strategy:
-    - Fresh DB: create_all already built all tables with correct schema → nothing to do here
-    - Old DB with role CHECK constraint: recreate users table to support GIAM_SAT role
-    - Old DB missing columns: ALTER TABLE to add them
+    PostgreSQL (Vibe hosting): uses ADD COLUMN IF NOT EXISTS — safe to run multiple times.
+    SQLite (local / binary):   detects old CHECK constraint and recreates table if needed.
     """
-    # --- users table migration ---
+    dialect = conn.dialect.name  # 'sqlite' or 'postgresql'
+
+    if dialect == "postgresql":
+        await _run_migrations_postgres(conn)
+    else:
+        await _run_migrations_sqlite(conn)
+
+
+async def _run_migrations_postgres(conn):
+    """PostgreSQL: add missing columns safely with IF NOT EXISTS."""
+    user_cols = [
+        ("can_upload_photo",       "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("can_access_qr_devices",  "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("can_access_patrol",      "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("can_access_dashboard",   "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ]
+    for col, typedef in user_cols:
+        await conn.execute(text(
+            f"ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS {col} {typedef}"
+        ))
+
+    device_cols = [
+        ("device_type", "TEXT"),
+        ("extra_data",  "TEXT"),
+    ]
+    for col, typedef in device_cols:
+        await conn.execute(text(
+            f"ALTER TABLE IF EXISTS qr_devices ADD COLUMN IF NOT EXISTS {col} {typedef}"
+        ))
+
+
+async def _run_migrations_sqlite(conn):
+    """SQLite: handle old CHECK constraint + add missing columns."""
     result = await conn.execute(
         text("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")
     )
     users_sql = result.scalar() or ""
 
-    # Detect old schema: has CHECK constraint without GIAM_SAT
     old_role_constraint = "CHECK" in users_sql and "GIAM_SAT" not in users_sql
 
     if old_role_constraint:
-        # Recreate users table: remove CHECK constraint, add new permission columns
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS _users_tmp (
                 id VARCHAR(32) NOT NULL,
@@ -79,7 +107,6 @@ async def _run_migrations(conn):
                 PRIMARY KEY (id)
             )
         """))
-        # Copy data — handle whether can_upload_photo exists in old table
         try:
             await conn.execute(text("""
                 INSERT OR IGNORE INTO _users_tmp
@@ -102,7 +129,6 @@ async def _run_migrations(conn):
         ))
         print("[Traffic] DB migration: users table updated (GIAM_SAT role + permission columns)")
     else:
-        # Table exists with correct schema or is new — just add missing columns
         for col_sql in [
             "ALTER TABLE users ADD COLUMN can_upload_photo INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN can_access_qr_devices INTEGER NOT NULL DEFAULT 0",
@@ -112,9 +138,8 @@ async def _run_migrations(conn):
             try:
                 await conn.execute(text(col_sql))
             except Exception:
-                pass  # Column already exists
+                pass
 
-    # --- qr_devices table migration ---
     for col_sql in [
         "ALTER TABLE qr_devices ADD COLUMN device_type TEXT",
         "ALTER TABLE qr_devices ADD COLUMN extra_data TEXT",

@@ -15,22 +15,39 @@ class Settings(BaseSettings):
 
     @property
     def db_path(self) -> str:
-        # Explicit path takes priority (set this in Vibe / hosting env vars)
+        """SQLite file path — only used when DATABASE_URL is not set."""
         custom = os.environ.get("DB_PATH")
         if custom:
             return custom
-        # Some hosting platforms provide a persistent data directory
         data_dir = os.environ.get("DATA_DIR") or os.environ.get("VIBE_DATA_DIR")
         if data_dir:
             return os.path.join(data_dir, "traffic.db")
-        # PyInstaller binary: db file sits next to the exe
         if getattr(sys, "frozen", False):
             return os.path.join(os.path.dirname(sys.executable), "traffic.db")
         return os.path.join(os.getcwd(), "traffic.db")
 
     @property
     def database_url(self) -> str:
+        """
+        Supports PostgreSQL (Vibe hosting) and SQLite (local / binary).
+
+        Set DATABASE_URL in environment for PostgreSQL:
+          DATABASE_URL=postgresql://user:pass@host:5432/dbname
+        Leave unset to use local SQLite (traffic.db).
+        """
+        url = os.environ.get("DATABASE_URL")
+        if url:
+            # Normalize: Vibe/Heroku-style postgres:// → SQLAlchemy async driver
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif url.startswith("postgresql://") and "+asyncpg" not in url:
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return url
         return f"sqlite+aiosqlite:///{self.db_path}"
+
+    @property
+    def is_postgres(self) -> bool:
+        return self.database_url.startswith("postgresql")
 
 
 settings = Settings()
