@@ -4,7 +4,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/data
+      - traffic-data:/data
     env_file:
       - .env
     restart: unless-stopped
+
+volumes:
+  traffic-data:
