@@ -16,9 +16,10 @@ const qc = new QueryClient({
 })
 
 function RootRedirect() {
-  const { role, canAccessPatrol, canAccessQrDevices } = useAuthStore()
+  const { role, canAccessDashboard, canAccessPatrol, canAccessQrDevices } = useAuthStore()
   if (role === 'ADMIN') return <Navigate to="/dashboard" replace />
   if (role === 'GIAM_SAT') {
+    if (canAccessDashboard) return <Navigate to="/dashboard" replace />
     if (canAccessPatrol) return <Navigate to="/patrol" replace />
     if (canAccessQrDevices) return <Navigate to="/qr-devices" replace />
     return <Navigate to="/mobile" replace />
@@ -36,7 +37,7 @@ export default function App() {
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requirePermission="dashboard">
                 <Dashboard />
               </ProtectedRoute>
             }

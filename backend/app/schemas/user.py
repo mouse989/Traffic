@@ -9,6 +9,7 @@ class UserCreate(BaseModel):
     can_upload_photo: bool = False
     can_access_qr_devices: bool = False
     can_access_patrol: bool = False
+    can_access_dashboard: bool = False
 
 
 class UserRead(BaseModel):
@@ -19,6 +20,7 @@ class UserRead(BaseModel):
     can_upload_photo: bool
     can_access_qr_devices: bool
     can_access_patrol: bool
+    can_access_dashboard: bool
     created_at: str
 
     model_config = {"from_attributes": True}
@@ -29,6 +31,7 @@ class UserUpdate(BaseModel):
     can_upload_photo: bool | None = None
     can_access_qr_devices: bool | None = None
     can_access_patrol: bool | None = None
+    can_access_dashboard: bool | None = None
 
 
 class PasswordReset(BaseModel):

@@ -12,6 +12,7 @@ export interface User {
   can_upload_photo: boolean
   can_access_qr_devices: boolean
   can_access_patrol: boolean
+  can_access_dashboard: boolean
   created_at: string
 }
 
@@ -40,6 +41,7 @@ export interface UserCreate {
   can_upload_photo?: boolean
   can_access_qr_devices?: boolean
   can_access_patrol?: boolean
+  can_access_dashboard?: boolean
 }
 
 export interface QrDevice {

@@ -24,7 +24,7 @@ interface DeviceFormState {
 }
 
 export default function QrDevices() {
-  const { username, role, clear, canAccessPatrol } = useAuthStore()
+  const { username, role, clear, canAccessPatrol, canAccessDashboard } = useAuthStore()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -254,7 +254,7 @@ export default function QrDevices() {
       <header className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {role === 'ADMIN' ? (
+            {role === 'ADMIN' || canAccessDashboard ? (
               <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-gray-600 text-sm">← Dashboard</button>
             ) : canAccessPatrol ? (
               <button onClick={() => navigate('/patrol')} className="text-blue-600 hover:text-blue-800 text-sm font-medium">← Tuần tra</button>

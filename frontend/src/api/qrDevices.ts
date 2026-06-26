@@ -56,6 +56,11 @@ export async function exportPatrolCsv(date?: string): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
+export async function validateQrCode(qrText: string): Promise<{ device_id: string; name: string; location: string }> {
+  const resp = await client.get('/api/qr-devices/by-qr', { params: { qr_text: qrText } })
+  return resp.data
+}
+
 // Device field config API
 export async function getDeviceFieldConfigs(): Promise<DeviceFieldConfig[]> {
   const resp = await client.get<DeviceFieldConfig[]>('/api/device-fields')

@@ -13,6 +13,7 @@ export default function UserForm({ onSubmit, onClose }: Props) {
   const [canUploadPhoto, setCanUploadPhoto] = useState(false)
   const [canAccessQrDevices, setCanAccessQrDevices] = useState(false)
   const [canAccessPatrol, setCanAccessPatrol] = useState(false)
+  const [canAccessDashboard, setCanAccessDashboard] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -32,6 +33,7 @@ export default function UserForm({ onSubmit, onClose }: Props) {
         can_upload_photo: canUploadPhoto,
         can_access_qr_devices: canAccessQrDevices,
         can_access_patrol: canAccessPatrol,
+        can_access_dashboard: canAccessDashboard,
       })
       onClose()
     } catch (err: unknown) {
@@ -77,6 +79,7 @@ export default function UserForm({ onSubmit, onClose }: Props) {
                 if (r !== 'GIAM_SAT') {
                   setCanAccessQrDevices(false)
                   setCanAccessPatrol(false)
+                  setCanAccessDashboard(false)
                 }
               }}
               className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -107,6 +110,15 @@ export default function UserForm({ onSubmit, onClose }: Props) {
                   className="w-4 h-4 rounded border-gray-300 text-blue-600"
                 />
                 <span className="text-gray-700">Tuần tra</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={canAccessDashboard}
+                  onChange={(e) => setCanAccessDashboard(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                />
+                <span className="text-gray-700">Dashboard giám sát</span>
               </label>
             </div>
           )}

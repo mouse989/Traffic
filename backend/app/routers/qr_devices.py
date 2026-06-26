@@ -1,13 +1,13 @@
 import csv
 import io
 import json
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
-from app.dependencies import require_qr_access
+from app.dependencies import require_qr_access, require_any_auth
 from app.models.user import User
 from app.models.qr_device import QrDevice
 from app.models.device_field_config import DeviceFieldConfig
@@ -16,6 +16,20 @@ from app.schemas.qr_device import QrDeviceCreate, QrDeviceUpdate, QrDeviceRead
 router = APIRouter(prefix="/api/qr-devices", tags=["qr-devices"])
 
 _qr = Depends(require_qr_access())
+
+
+@router.get("/by-qr")
+async def lookup_device_by_qr(
+    qr_text: str = Query(..., description="QR code text to look up"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_any_auth()),
+):
+    """Validate that a QR text exists in the device registry."""
+    result = await db.execute(select(QrDevice).where(QrDevice.qr_text == qr_text))
+    device = result.scalar_one_or_none()
+    if not device:
+        raise HTTPException(status_code=404, detail="Mã QR không hợp lệ hoặc chưa được đăng ký trong hệ thống")
+    return {"device_id": device.device_id, "name": device.name, "location": device.location}
 
 
 async def _get_custom_fields(db: AsyncSession) -> list[DeviceFieldConfig]:

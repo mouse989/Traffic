@@ -35,3 +35,8 @@ export async function setPatrolPermission(id: string, can_access_patrol: boolean
   const resp = await client.patch<User>(`/api/users/${id}`, { can_access_patrol })
   return resp.data
 }
+
+export async function setDashboardPermission(id: string, can_access_dashboard: boolean): Promise<User> {
+  const resp = await client.patch<User>(`/api/users/${id}`, { can_access_dashboard })
+  return resp.data
+}

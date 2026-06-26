@@ -24,6 +24,7 @@ def create_access_token(
     can_upload_photo: bool = False,
     can_access_qr_devices: bool = False,
     can_access_patrol: bool = False,
+    can_access_dashboard: bool = False,
 ) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
@@ -32,6 +33,7 @@ def create_access_token(
         "can_upload_photo": can_upload_photo,
         "can_access_qr_devices": can_access_qr_devices,
         "can_access_patrol": can_access_patrol,
+        "can_access_dashboard": can_access_dashboard,
         "type": "access",
         "exp": expire,
     }
@@ -83,4 +85,5 @@ def token_permissions(user: User) -> dict:
         "can_upload_photo": user.can_upload_photo,
         "can_access_qr_devices": is_admin or user.can_access_qr_devices,
         "can_access_patrol": is_admin or user.can_access_patrol,
+        "can_access_dashboard": is_admin or user.can_access_dashboard,
     }

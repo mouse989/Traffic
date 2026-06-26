@@ -29,4 +29,5 @@ class User(Base):
     # Supervisor module permissions (ignored for ADMIN/STAFF — ADMIN always has all)
     can_access_qr_devices: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     can_access_patrol: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    can_access_dashboard: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[str] = mapped_column(String(32), nullable=False)

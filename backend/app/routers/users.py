@@ -44,6 +44,7 @@ async def create_user(
         can_upload_photo=body.can_upload_photo,
         can_access_qr_devices=body.can_access_qr_devices,
         can_access_patrol=body.can_access_patrol,
+        can_access_dashboard=body.can_access_dashboard,
         created_at=datetime.now(TZ7).strftime("%Y-%m-%d %H:%M:%S"),
     )
     db.add(user)
@@ -74,6 +75,8 @@ async def update_user(
         user.can_access_qr_devices = body.can_access_qr_devices
     if body.can_access_patrol is not None:
         user.can_access_patrol = body.can_access_patrol
+    if body.can_access_dashboard is not None:
+        user.can_access_dashboard = body.can_access_dashboard
 
     await db.commit()
     await db.refresh(user)

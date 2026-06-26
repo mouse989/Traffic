@@ -4,11 +4,11 @@ import { useAuthStore } from '../store/authStore'
 interface Props {
   children: React.ReactNode
   requireAdmin?: boolean
-  requirePermission?: 'qr_devices' | 'patrol'
+  requirePermission?: 'qr_devices' | 'patrol' | 'dashboard'
 }
 
 export default function ProtectedRoute({ children, requireAdmin = false, requirePermission }: Props) {
-  const { accessToken, role, canAccessQrDevices, canAccessPatrol } = useAuthStore()
+  const { accessToken, role, canAccessQrDevices, canAccessPatrol, canAccessDashboard } = useAuthStore()
 
   if (!accessToken) return <Navigate to="/login" replace />
 
@@ -25,8 +25,9 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
 
   if (requirePermission) {
     if (role === 'ADMIN') return <>{children}</>
-    if (requirePermission === 'qr_devices' && (role === 'GIAM_SAT' && canAccessQrDevices)) return <>{children}</>
-    if (requirePermission === 'patrol' && (role === 'GIAM_SAT' && canAccessPatrol)) return <>{children}</>
+    if (requirePermission === 'qr_devices' && role === 'GIAM_SAT' && canAccessQrDevices) return <>{children}</>
+    if (requirePermission === 'patrol' && role === 'GIAM_SAT' && canAccessPatrol) return <>{children}</>
+    if (requirePermission === 'dashboard' && role === 'GIAM_SAT' && canAccessDashboard) return <>{children}</>
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

@@ -74,6 +74,7 @@ async def _run_migrations(conn):
                 can_upload_photo INTEGER NOT NULL DEFAULT 0,
                 can_access_qr_devices INTEGER NOT NULL DEFAULT 0,
                 can_access_patrol INTEGER NOT NULL DEFAULT 0,
+                can_access_dashboard INTEGER NOT NULL DEFAULT 0,
                 created_at VARCHAR(32) NOT NULL,
                 PRIMARY KEY (id)
             )
@@ -106,6 +107,7 @@ async def _run_migrations(conn):
             "ALTER TABLE users ADD COLUMN can_upload_photo INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN can_access_qr_devices INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN can_access_patrol INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN can_access_dashboard INTEGER NOT NULL DEFAULT 0",
         ]:
             try:
                 await conn.execute(text(col_sql))

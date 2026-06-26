@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_role
+from app.dependencies import require_role, require_dashboard_access
 from app.models.user import User, Role
 from app.schemas.scan import ScanCreate, ScanRead, ScanPage
 from app.services.scan_service import create_scan, extract_client_ip, get_scans
@@ -15,7 +15,7 @@ async def submit_scan(
     body: ScanCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.ADMIN, Role.STAFF)),
+    current_user: User = Depends(require_role(Role.ADMIN, Role.STAFF, Role.GIAM_SAT)),
 ):
     ip = extract_client_ip(request)
     scan = await create_scan(db, body, current_user.username, ip)
@@ -30,6 +30,6 @@ async def list_scans(
     page: int = 1,
     page_size: int = 50,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(Role.ADMIN)),
+    _: User = Depends(require_dashboard_access()),
 ):
     return await get_scans(db, username, date_from, date_to, page, page_size)

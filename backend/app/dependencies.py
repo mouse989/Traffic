@@ -53,3 +53,21 @@ def require_patrol_access():
             return user
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền xem tuần tra")
     return dependency
+
+
+def require_dashboard_access():
+    """Allow ADMIN always; GIAM_SAT only when can_access_dashboard=True."""
+    async def dependency(user: User = Depends(_get_current_user)) -> User:
+        if user.role == Role.ADMIN:
+            return user
+        if user.role == Role.GIAM_SAT and user.can_access_dashboard:
+            return user
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền xem dashboard")
+    return dependency
+
+
+def require_any_auth():
+    """Allow any authenticated active user (ADMIN, GIAM_SAT, STAFF)."""
+    async def dependency(user: User = Depends(_get_current_user)) -> User:
+        return user
+    return dependency

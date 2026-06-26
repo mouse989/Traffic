@@ -13,7 +13,7 @@ function todayString() {
 type DeviceFilter = 'all' | 'scanned' | 'not_scanned'
 
 export default function Patrol() {
-  const { username, role, clear, canAccessQrDevices } = useAuthStore()
+  const { username, role, clear, canAccessQrDevices, canAccessDashboard } = useAuthStore()
   const navigate = useNavigate()
   const [selectedDate, setSelectedDate] = useState(todayString)
   const [deviceFilter, setDeviceFilter] = useState<DeviceFilter>('all')
@@ -55,7 +55,7 @@ export default function Patrol() {
       <header className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {role === 'ADMIN' ? (
+            {role === 'ADMIN' || canAccessDashboard ? (
               <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-gray-600 text-sm">← Dashboard</button>
             ) : canAccessQrDevices ? (
               <button onClick={() => navigate('/qr-devices')} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Quản lý QRCode →</button>

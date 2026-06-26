@@ -11,7 +11,7 @@ function todayStr() {
 }
 
 export default function Dashboard() {
-  const { username, role, clear } = useAuthStore()
+  const { username, role, clear, canAccessQrDevices, canAccessPatrol } = useAuthStore()
   const navigate = useNavigate()
   const [filterUsername, setFilterUsername] = useState('')
   const [dateFrom, setDateFrom] = useState(todayStr)
@@ -56,7 +56,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {role === 'ADMIN' && (
+            {role === 'ADMIN' ? (
               <>
                 <button
                   onClick={() => navigate('/qr-devices')}
@@ -82,6 +82,25 @@ export default function Dashboard() {
                 >
                   Scanner Mobile
                 </button>
+              </>
+            ) : (
+              <>
+                {canAccessQrDevices && (
+                  <button
+                    onClick={() => navigate('/qr-devices')}
+                    className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                  >
+                    Quản lý QRCode
+                  </button>
+                )}
+                {canAccessPatrol && (
+                  <button
+                    onClick={() => navigate('/patrol')}
+                    className="text-sm text-orange-600 hover:text-orange-800 font-medium"
+                  >
+                    Tuần tra
+                  </button>
+                )}
               </>
             )}
             <span className="text-sm text-gray-600">

@@ -2,20 +2,22 @@ import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { submitScan } from '../api/scans'
+import { validateQrCode } from '../api/qrDevices'
 import QrCameraScanner from '../components/QrCameraScanner'
 import ScanChallenge from '../components/ScanChallenge'
 import type { ScanLog } from '../types'
 
 type Stage =
   | 'IDLE'        // Camera active, waiting for QR
-  | 'CHALLENGE'   // QR detected, showing 1-char challenge
+  | 'VALIDATING'  // QR detected, checking against device registry
+  | 'CHALLENGE'   // QR valid, showing 1-char challenge
   | 'GPS'         // Challenge passed, getting GPS
   | 'SUBMITTING'  // GPS obtained, sending to server
   | 'SUCCESS'     // Scan submitted successfully
   | 'ERROR'       // Something went wrong
 
 export default function MobileScanner() {
-  const { username, role, clear, canUploadPhoto } = useAuthStore()
+  const { username, role, clear, canUploadPhoto, canAccessDashboard } = useAuthStore()
   const navigate = useNavigate()
   const [stage, setStage] = useState<Stage>('IDLE')
   const [pendingQrId, setPendingQrId] = useState<string | null>(null)
@@ -23,10 +25,17 @@ export default function MobileScanner() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [gpsAccuracyWarning, setGpsAccuracyWarning] = useState<string | null>(null)
 
-  const handleQrDetected = useCallback((qrCodeId: string) => {
-    if (stage !== 'IDLE') return // Debounce: ignore if already processing
+  const handleQrDetected = useCallback(async (qrCodeId: string) => {
+    if (stage !== 'IDLE') return
     setPendingQrId(qrCodeId)
-    setStage('CHALLENGE')
+    setStage('VALIDATING')
+    try {
+      await validateQrCode(qrCodeId)
+      setStage('CHALLENGE')
+    } catch {
+      setErrorMsg('Mã QR không hợp lệ hoặc chưa được đăng ký trong hệ thống.')
+      setStage('ERROR')
+    }
   }, [stage])
 
   const handleChallengeSuccess = () => {
@@ -104,7 +113,7 @@ export default function MobileScanner() {
     navigate('/login')
   }
 
-  const isScanning = stage === 'IDLE' || stage === 'SUCCESS' || stage === 'ERROR'
+  const isScanning = stage === 'IDLE' || stage === 'SUCCESS' || stage === 'ERROR' || stage === 'VALIDATING'
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
@@ -118,9 +127,9 @@ export default function MobileScanner() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {role === 'ADMIN' && (
+          {(role === 'ADMIN' || canAccessDashboard) && (
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/dashboard')}
               className="text-xs text-blue-400 hover:text-blue-300"
             >
               Dashboard
@@ -146,6 +155,14 @@ export default function MobileScanner() {
 
       {/* Status Panel */}
       <div className="flex-1 px-3 py-3 space-y-3 overflow-y-auto">
+
+        {/* Validating QR */}
+        {stage === 'VALIDATING' && (
+          <div className="bg-indigo-900/50 border border-indigo-700 rounded-xl p-4 flex items-center gap-3">
+            <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            <p className="text-indigo-200 text-sm font-medium">Đang kiểm tra mã QR...</p>
+          </div>
+        )}
 
         {/* GPS loading / Submitting */}
         {(stage === 'GPS' || stage === 'SUBMITTING') && (

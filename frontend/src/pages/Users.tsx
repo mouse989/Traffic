@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
   getUsers, createUser, toggleUser, resetPassword,
-  setUploadPhotoPermission, setQrDevicesPermission, setPatrolPermission,
+  setUploadPhotoPermission, setQrDevicesPermission, setPatrolPermission, setDashboardPermission,
 } from '../api/users'
 import { useAuthStore } from '../store/authStore'
 import UserForm from '../components/UserForm'
@@ -69,6 +69,12 @@ export default function Users() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   })
 
+  const dashboardMutation = useMutation({
+    mutationFn: ({ id, can_access_dashboard }: { id: string; can_access_dashboard: boolean }) =>
+      setDashboardPermission(id, can_access_dashboard),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+
   const handleCreate = async (data: UserCreate) => {
     await createMutation.mutateAsync(data)
   }
@@ -114,6 +120,7 @@ export default function Users() {
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Chọn ảnh</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">QRCode</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Tuần tra</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Dashboard</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Ngày tạo</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Hành động</th>
                 </tr>
@@ -163,6 +170,17 @@ export default function Users() {
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                      {user.role === 'ADMIN' ? (
+                        <span className="text-xs text-gray-400">Luôn có</span>
+                      ) : (
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          user.can_access_dashboard ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {user.can_access_dashboard ? 'Có' : 'Không'}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{user.created_at}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 flex-wrap">
@@ -206,6 +224,17 @@ export default function Users() {
                               title="Toggle quyền Tuần tra"
                             >
                               {user.can_access_patrol ? 'Tuần tra: Thu hồi' : 'Tuần tra: Cấp'}
+                            </button>
+                            <button
+                              onClick={() => dashboardMutation.mutate({ id: user.id, can_access_dashboard: !user.can_access_dashboard })}
+                              className={`text-xs px-2 py-1 rounded border ${
+                                user.can_access_dashboard
+                                  ? 'border-blue-300 text-blue-600 hover:bg-blue-50'
+                                  : 'border-gray-300 text-gray-500 hover:bg-gray-50'
+                              }`}
+                              title="Toggle quyền Dashboard"
+                            >
+                              {user.can_access_dashboard ? 'Dashboard: Thu hồi' : 'Dashboard: Cấp'}
                             </button>
                           </>
                         )}
