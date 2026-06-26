@@ -3,9 +3,24 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
-import { getQrDevices, createQrDevice, deleteQrDevice, importQrDevicesCsv } from '../api/qrDevices'
+import {
+  getQrDevices, createQrDevice, deleteQrDevice, importQrDevicesCsv, downloadCsvTemplate,
+  getDeviceFieldConfigs, createDeviceFieldConfig, deleteDeviceFieldConfig,
+} from '../api/qrDevices'
 import { useAuthStore } from '../store/authStore'
-import type { QrDevice } from '../types'
+import type { QrDevice, DeviceFieldConfig } from '../types'
+
+type Tab = 'devices' | 'fields'
+
+interface DeviceFormState {
+  device_id: string
+  name: string
+  location: string
+  notes: string
+  qr_text: string
+  device_type: string
+  [key: string]: string  // custom fields
+}
 
 export default function QrDevices() {
   const { username, role, clear } = useAuthStore()
@@ -13,20 +28,36 @@ export default function QrDevices() {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const [tab, setTab] = useState<Tab>('devices')
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ device_id: '', name: '', location: '', notes: '', qr_text: '' })
+  const [form, setForm] = useState<DeviceFormState>({
+    device_id: '', name: '', location: '', notes: '', qr_text: '', device_type: '',
+  })
   const [formError, setFormError] = useState('')
   const [importMsg, setImportMsg] = useState('')
   const [pdfLoading, setPdfLoading] = useState(false)
+
+  // New field config form
+  const [newField, setNewField] = useState({ field_name: '', label: '', required: false, sort_order: 0 })
+  const [fieldError, setFieldError] = useState('')
 
   const { data: devices = [], isLoading } = useQuery({
     queryKey: ['qr-devices'],
     queryFn: getQrDevices,
   })
 
+  const { data: fieldConfigs = [] } = useQuery<DeviceFieldConfig[]>({
+    queryKey: ['device-field-configs'],
+    queryFn: getDeviceFieldConfigs,
+  })
+
   const createMut = useMutation({
     mutationFn: createQrDevice,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['qr-devices'] }); setShowForm(false); setForm({ device_id: '', name: '', location: '', notes: '', qr_text: '' }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['qr-devices'] })
+      setShowForm(false)
+      resetForm()
+    },
     onError: (e: unknown) => {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setFormError(msg ?? 'Không thể tạo thiết bị')
@@ -47,6 +78,36 @@ export default function QrDevices() {
     },
   })
 
+  const createFieldMut = useMutation({
+    mutationFn: createDeviceFieldConfig,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['device-field-configs'] })
+      setNewField({ field_name: '', label: '', required: false, sort_order: 0 })
+      setFieldError('')
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setFieldError(msg ?? 'Không thể tạo trường')
+    },
+  })
+
+  const deleteFieldMut = useMutation({
+    mutationFn: deleteDeviceFieldConfig,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['device-field-configs'] }),
+  })
+
+  function resetForm() {
+    const base: DeviceFormState = { device_id: '', name: '', location: '', notes: '', qr_text: '', device_type: '' }
+    fieldConfigs.forEach((f) => { base[f.field_name] = '' })
+    setForm(base)
+  }
+
+  function openForm() {
+    resetForm()
+    setFormError('')
+    setShowForm(true)
+  }
+
   async function exportPdf() {
     if (devices.length === 0) return
     setPdfLoading(true)
@@ -56,7 +117,6 @@ export default function QrDevices() {
       const cellW = 40, cellH = 40
       const cols = 5
       const qrSize = 30
-      const textY = marginY + qrSize + 3
 
       for (let i = 0; i < devices.length; i++) {
         const device = devices[i]
@@ -73,8 +133,8 @@ export default function QrDevices() {
         pdf.setFontSize(6)
         const label = device.qr_text.length > 20 ? device.qr_text.slice(0, 20) + '…' : device.qr_text
         const nameLabel = device.name.length > 18 ? device.name.slice(0, 18) + '…' : device.name
-        pdf.text(label, x + cellW / 2, y + textY, { align: 'center' })
-        pdf.text(nameLabel, x + cellW / 2, y + textY + 3, { align: 'center' })
+        pdf.text(label, x + cellW / 2, y + qrSize + 5, { align: 'center' })
+        pdf.text(nameLabel, x + cellW / 2, y + qrSize + 8, { align: 'center' })
 
         pdf.setDrawColor(200)
         pdf.rect(x, y, cellW, cellH)
@@ -93,7 +153,27 @@ export default function QrDevices() {
       setFormError('Vui lòng điền đầy đủ thông tin bắt buộc')
       return
     }
-    createMut.mutate({ ...form, notes: form.notes || null })
+    // Validate required custom fields
+    for (const fc of fieldConfigs) {
+      if (fc.required && !form[fc.field_name]?.trim()) {
+        setFormError(`Trường "${fc.label}" là bắt buộc`)
+        return
+      }
+    }
+    const extra: Record<string, string> = {}
+    fieldConfigs.forEach((fc) => {
+      const val = form[fc.field_name]?.trim()
+      if (val) extra[fc.field_name] = val
+    })
+    createMut.mutate({
+      device_id: form.device_id.trim(),
+      name: form.name.trim(),
+      location: form.location.trim(),
+      notes: form.notes.trim() || null,
+      qr_text: form.qr_text.trim(),
+      device_type: form.device_type.trim() || null,
+      extra_data: Object.keys(extra).length > 0 ? extra : null,
+    })
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -101,6 +181,16 @@ export default function QrDevices() {
     if (!file) return
     importMut.mutate(file)
     e.target.value = ''
+  }
+
+  function handleAddField(e: React.FormEvent) {
+    e.preventDefault()
+    setFieldError('')
+    if (!newField.field_name.trim() || !newField.label.trim()) {
+      setFieldError('Điền đầy đủ tên trường và nhãn')
+      return
+    }
+    createFieldMut.mutate(newField)
   }
 
   return (
@@ -122,96 +212,233 @@ export default function QrDevices() {
             <button onClick={() => { clear(); navigate('/login') }} className="text-sm text-red-500 hover:text-red-700">Đăng xuất</button>
           </div>
         </div>
+
+        {/* Tabs */}
+        <div className="max-w-7xl mx-auto px-4 flex gap-0 border-t">
+          <button
+            onClick={() => setTab('devices')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === 'devices' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            Thiết bị
+          </button>
+          <button
+            onClick={() => setTab('fields')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === 'fields' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            Cấu hình trường
+          </button>
+        </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-4">
-        {/* Toolbar */}
-        <div className="flex flex-wrap gap-3 items-center">
-          <button
-            onClick={() => { setShowForm(true); setFormError('') }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 font-medium"
-          >
-            + Thêm thiết bị
-          </button>
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 font-medium"
-          >
-            Import CSV
-          </button>
-          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
-          <button
-            onClick={exportPdf}
-            disabled={pdfLoading || devices.length === 0}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 font-medium disabled:opacity-50"
-          >
-            {pdfLoading ? 'Đang tạo PDF...' : 'Xuất PDF'}
-          </button>
-          {importMsg && <span className="text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-lg">{importMsg}</span>}
-          {importMut.isPending && <span className="text-sm text-gray-500">Đang import...</span>}
-          <span className="text-sm text-gray-500 ml-auto">{devices.length} thiết bị</span>
-        </div>
+        {tab === 'devices' && (
+          <>
+            {/* Toolbar */}
+            <div className="flex flex-wrap gap-3 items-center">
+              <button
+                onClick={openForm}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 font-medium"
+              >
+                + Thêm thiết bị
+              </button>
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 font-medium"
+              >
+                Import CSV
+              </button>
+              <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+              <button
+                onClick={() => downloadCsvTemplate()}
+                className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 font-medium text-gray-600"
+              >
+                Tải template CSV
+              </button>
+              <button
+                onClick={exportPdf}
+                disabled={pdfLoading || devices.length === 0}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 font-medium disabled:opacity-50"
+              >
+                {pdfLoading ? 'Đang tạo PDF...' : 'Xuất PDF'}
+              </button>
+              {importMsg && <span className="text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-lg">{importMsg}</span>}
+              {importMut.isPending && <span className="text-sm text-gray-500">Đang import...</span>}
+              <span className="text-sm text-gray-500 ml-auto">{devices.length} thiết bị</span>
+            </div>
 
-        {/* CSV format hint */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-          <p className="text-xs text-blue-700">
-            Định dạng CSV: <code className="font-mono bg-blue-100 px-1 rounded">device_id,name,location,notes,qr_text</code>
-            &nbsp;(notes không bắt buộc)
-          </p>
-        </div>
+            {/* Table */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              {isLoading ? (
+                <div className="p-8 text-center text-gray-500">Đang tải...</div>
+              ) : devices.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">Chưa có thiết bị nào. Thêm mới hoặc import CSV.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Mã TB</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Tên thiết bị</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Loại</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Vị trí</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Chuỗi QR</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Ghi chú</th>
+                      {fieldConfigs.map((fc) => (
+                        <th key={fc.field_name} className="text-left px-4 py-3 font-medium text-gray-600">{fc.label}</th>
+                      ))}
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {devices.map((d: QrDevice) => (
+                      <tr key={d.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800">{d.device_id}</td>
+                        <td className="px-4 py-3 text-gray-800">{d.name}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500">{d.device_type ?? '—'}</td>
+                        <td className="px-4 py-3 text-gray-600">{d.location}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-blue-700 max-w-xs truncate">{d.qr_text}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs">{d.notes ?? '—'}</td>
+                        {fieldConfigs.map((fc) => (
+                          <td key={fc.field_name} className="px-4 py-3 text-xs text-gray-600">
+                            {d.extra_data?.[fc.field_name] ?? '—'}
+                          </td>
+                        ))}
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => { if (confirm(`Xóa thiết bị "${d.name}"?`)) deleteMut.mutate(d.id) }}
+                            className="text-red-500 hover:text-red-700 text-xs"
+                          >
+                            Xóa
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
+        )}
 
-        {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          {isLoading ? (
-            <div className="p-8 text-center text-gray-500">Đang tải...</div>
-          ) : devices.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">Chưa có thiết bị nào. Thêm mới hoặc import CSV.</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Mã TB</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Tên thiết bị</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Vị trí</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Chuỗi QR</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Ghi chú</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {devices.map((d: QrDevice) => (
-                  <tr key={d.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono text-xs text-gray-800">{d.device_id}</td>
-                    <td className="px-4 py-3 text-gray-800">{d.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{d.location}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-blue-700 max-w-xs truncate">{d.qr_text}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{d.notes ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => { if (confirm(`Xóa thiết bị "${d.name}"?`)) deleteMut.mutate(d.id) }}
-                        className="text-red-500 hover:text-red-700 text-xs"
-                      >
-                        Xóa
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {tab === 'fields' && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700">
+              Cấu hình các trường tùy chỉnh bổ sung cho thiết bị. Các trường này sẽ xuất hiện trong form thêm thiết bị và file template CSV.
+            </div>
+
+            {/* Add new field form */}
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h3 className="font-semibold text-gray-700 mb-3">Thêm trường mới</h3>
+              <form onSubmit={handleAddField} className="flex flex-wrap gap-3 items-end">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Tên trường (slug) *</label>
+                  <input
+                    type="text"
+                    value={newField.field_name}
+                    onChange={(e) => setNewField(f => ({ ...f, field_name: e.target.value }))}
+                    placeholder="vd: serial_number"
+                    className="border rounded-lg px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Nhãn hiển thị *</label>
+                  <input
+                    type="text"
+                    value={newField.label}
+                    onChange={(e) => setNewField(f => ({ ...f, label: e.target.value }))}
+                    placeholder="vd: Số Serial"
+                    className="border rounded-lg px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Thứ tự</label>
+                  <input
+                    type="number"
+                    value={newField.sort_order}
+                    onChange={(e) => setNewField(f => ({ ...f, sort_order: parseInt(e.target.value) || 0 }))}
+                    className="border rounded-lg px-3 py-2 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pb-0.5">
+                  <input
+                    type="checkbox"
+                    id="req"
+                    checked={newField.required}
+                    onChange={(e) => setNewField(f => ({ ...f, required: e.target.checked }))}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="req" className="text-sm text-gray-700 cursor-pointer">Bắt buộc</label>
+                </div>
+                <button
+                  type="submit"
+                  disabled={createFieldMut.isPending}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 font-medium"
+                >
+                  {createFieldMut.isPending ? 'Đang lưu...' : '+ Thêm trường'}
+                </button>
+              </form>
+              {fieldError && <p className="text-red-600 text-sm mt-2">{fieldError}</p>}
+            </div>
+
+            {/* Existing fields */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b">
+                <h3 className="font-semibold text-gray-700">Các trường đã cấu hình</h3>
+              </div>
+              {fieldConfigs.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">Chưa có trường tùy chỉnh nào.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Tên trường</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Nhãn</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Bắt buộc</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Thứ tự</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {fieldConfigs.map((fc: DeviceFieldConfig) => (
+                      <tr key={fc.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800">{fc.field_name}</td>
+                        <td className="px-4 py-3 text-gray-800">{fc.label}</td>
+                        <td className="px-4 py-3">
+                          {fc.required ? (
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Bắt buộc</span>
+                          ) : (
+                            <span className="text-xs text-gray-400">Không</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">{fc.sort_order}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => { if (confirm(`Xóa trường "${fc.label}"? Dữ liệu đã nhập không bị xóa.`)) deleteFieldMut.mutate(fc.id) }}
+                            className="text-red-500 hover:text-red-700 text-xs"
+                          >
+                            Xóa
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Add device modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowForm(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-gray-800 mb-4">Thêm thiết bị mới</h2>
             <form onSubmit={handleSubmit} className="space-y-3">
               {[
                 { label: 'Mã thiết bị *', key: 'device_id', placeholder: 'VD: DEV-001' },
                 { label: 'Tên thiết bị *', key: 'name', placeholder: 'VD: Máy bơm tầng 3' },
+                { label: 'Loại thiết bị', key: 'device_type', placeholder: 'VD: Máy bơm, Đèn chiếu sáng...' },
                 { label: 'Vị trí/Địa điểm *', key: 'location', placeholder: 'VD: Tòa A - Tầng 3' },
                 { label: 'Chuỗi text QRCode *', key: 'qr_text', placeholder: 'VD: QR_DEV001_2024' },
                 { label: 'Ghi chú', key: 'notes', placeholder: 'Không bắt buộc' },
@@ -220,16 +447,37 @@ export default function QrDevices() {
                   <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
                   <input
                     type="text"
-                    value={form[key as keyof typeof form] ?? ''}
+                    value={form[key] ?? ''}
                     onChange={(e) => setForm(f => ({ ...f, [key]: e.target.value }))}
                     placeholder={placeholder}
                     className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               ))}
+
+              {/* Dynamic custom fields */}
+              {fieldConfigs.map((fc) => (
+                <div key={fc.field_name}>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {fc.label}{fc.required ? ' *' : ''}
+                  </label>
+                  <input
+                    type="text"
+                    value={form[fc.field_name] ?? ''}
+                    onChange={(e) => setForm(f => ({ ...f, [fc.field_name]: e.target.value }))}
+                    placeholder={fc.required ? 'Bắt buộc' : 'Không bắt buộc'}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              ))}
+
               {formError && <p className="text-red-600 text-sm">{formError}</p>}
               <div className="flex gap-2 pt-2">
-                <button type="submit" disabled={createMut.isPending} className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium">
+                <button
+                  type="submit"
+                  disabled={createMut.isPending}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+                >
                   {createMut.isPending ? 'Đang lưu...' : 'Lưu'}
                 </button>
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 border py-2 rounded-lg text-sm hover:bg-gray-50">

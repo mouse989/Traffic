@@ -29,6 +29,7 @@ class ScanRead(BaseModel):
     latitude: float
     longitude: float
     scanned_at: str
+    device_name: str | None = None
 
     model_config = {"from_attributes": True}
 

@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends
+from datetime import datetime, timezone, timedelta
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
@@ -11,6 +11,8 @@ from app.models.qr_device import QrDevice
 from app.models.scan_log import ScanLog
 
 router = APIRouter(prefix="/api/patrol", tags=["patrol"])
+
+TZ7 = timezone(timedelta(hours=7))
 
 
 class DeviceStatus(BaseModel):
@@ -29,14 +31,16 @@ class PatrolStats(BaseModel):
     scanned_today: int
     scan_count_today: int
     devices: list[DeviceStatus]
+    date: str
 
 
 @router.get("/today", response_model=PatrolStats)
 async def patrol_today(
+    date: str | None = Query(default=None, description="YYYY-MM-DD (UTC+7). Defaults to today."),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_role(Role.ADMIN)),
 ):
-    today_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date_prefix = date if date else datetime.now(TZ7).strftime("%Y-%m-%d")
 
     # All devices
     devices_result = await db.execute(select(QrDevice).order_by(QrDevice.device_id))
@@ -44,10 +48,11 @@ async def patrol_today(
     total_devices = len(devices)
 
     if total_devices == 0:
-        return PatrolStats(total_devices=0, scanned_today=0, scan_count_today=0, devices=[])
+        return PatrolStats(total_devices=0, scanned_today=0, scan_count_today=0, devices=[], date=date_prefix)
 
-    # Today's scan stats grouped by qr_code_id
+    # Scan stats for the given date grouped by qr_code_id
     qr_texts = [d.qr_text for d in devices]
+    date_end = date_prefix + " 23:59:59"
     stats_query = (
         select(
             ScanLog.qr_code_id,
@@ -56,7 +61,8 @@ async def patrol_today(
         )
         .where(
             and_(
-                ScanLog.scanned_at >= today_prefix,
+                ScanLog.scanned_at >= date_prefix,
+                ScanLog.scanned_at <= date_end,
                 ScanLog.qr_code_id.in_(qr_texts),
             )
         )
@@ -68,10 +74,10 @@ async def patrol_today(
         for row in stats_result.all()
     }
 
-    # Total scan count today (all scans, not just per device)
     total_today_query = select(func.count(ScanLog.id)).where(
         and_(
-            ScanLog.scanned_at >= today_prefix,
+            ScanLog.scanned_at >= date_prefix,
+            ScanLog.scanned_at <= date_end,
             ScanLog.qr_code_id.in_(qr_texts),
         )
     )
@@ -97,4 +103,5 @@ async def patrol_today(
         scanned_today=scanned_today,
         scan_count_today=scan_count_today,
         devices=device_statuses,
+        date=date_prefix,
     )

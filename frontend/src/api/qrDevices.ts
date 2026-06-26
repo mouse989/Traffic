@@ -1,5 +1,5 @@
 import client from './client'
-import type { QrDevice } from '../types'
+import type { QrDevice, DeviceFieldConfig } from '../types'
 
 export async function getQrDevices(): Promise<QrDevice[]> {
   const resp = await client.get<QrDevice[]>('/api/qr-devices')
@@ -29,7 +29,35 @@ export async function importQrDevicesCsv(file: File): Promise<{ created: number;
   return resp.data
 }
 
-export async function getPatrolToday() {
-  const resp = await client.get('/api/patrol/today')
+export async function downloadCsvTemplate(): Promise<void> {
+  const resp = await client.get('/api/qr-devices/import/template', { responseType: 'blob' })
+  const url = URL.createObjectURL(resp.data)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'qr-devices-template.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function getPatrolToday(date?: string) {
+  const params = date ? { date } : {}
+  const resp = await client.get('/api/patrol/today', { params })
   return resp.data
+}
+
+// Device field config API
+export async function getDeviceFieldConfigs(): Promise<DeviceFieldConfig[]> {
+  const resp = await client.get<DeviceFieldConfig[]>('/api/device-fields')
+  return resp.data
+}
+
+export async function createDeviceFieldConfig(
+  data: Omit<DeviceFieldConfig, 'id'>
+): Promise<DeviceFieldConfig> {
+  const resp = await client.post<DeviceFieldConfig>('/api/device-fields', data)
+  return resp.data
+}
+
+export async function deleteDeviceFieldConfig(id: string): Promise<void> {
+  await client.delete(`/api/device-fields/${id}`)
 }

@@ -21,6 +21,7 @@ export interface ScanLog {
   latitude: number
   longitude: number
   scanned_at: string
+  device_name?: string | null
 }
 
 export interface ScanPage {
@@ -44,7 +45,17 @@ export interface QrDevice {
   location: string
   notes: string | null
   qr_text: string
+  device_type: string | null
+  extra_data: Record<string, string> | null
   created_at: string
+}
+
+export interface DeviceFieldConfig {
+  id: string
+  field_name: string
+  label: string
+  required: boolean
+  sort_order: number
 }
 
 export interface DeviceStatus {
@@ -63,4 +74,5 @@ export interface PatrolStats {
   scanned_today: number
   scan_count_today: number
   devices: DeviceStatus[]
+  date: string
 }

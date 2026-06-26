@@ -1,17 +1,24 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getPatrolToday } from '../api/qrDevices'
 import { useAuthStore } from '../store/authStore'
 import type { PatrolStats, DeviceStatus } from '../types'
 
+function todayString() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function Patrol() {
   const { username, role, clear } = useAuthStore()
   const navigate = useNavigate()
+  const [selectedDate, setSelectedDate] = useState(todayString)
 
   const { data, isLoading, dataUpdatedAt } = useQuery<PatrolStats>({
-    queryKey: ['patrol-today'],
-    queryFn: getPatrolToday,
-    refetchInterval: 15_000,
+    queryKey: ['patrol', selectedDate],
+    queryFn: () => getPatrolToday(selectedDate),
+    refetchInterval: selectedDate === todayString() ? 15_000 : false,
   })
 
   const pct = data && data.total_devices > 0
@@ -22,6 +29,8 @@ export default function Patrol() {
     ? new Date(dataUpdatedAt).toLocaleTimeString('vi-VN')
     : '--:--:--'
 
+  const isToday = selectedDate === todayString()
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b shadow-sm">
@@ -29,8 +38,11 @@ export default function Patrol() {
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/')} className="text-gray-400 hover:text-gray-600">←</button>
             <div>
-              <h1 className="font-bold text-gray-800">Tuần tra hôm nay</h1>
-              <p className="text-xs text-gray-500">Cập nhật lúc {lastUpdate} • tự động mỗi 15 giây</p>
+              <h1 className="font-bold text-gray-800">Tuần tra</h1>
+              <p className="text-xs text-gray-500">
+                Cập nhật lúc {lastUpdate}
+                {isToday ? ' • tự động mỗi 15 giây' : ''}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -44,6 +56,28 @@ export default function Patrol() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Date picker */}
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Chọn ngày:</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {!isToday && (
+            <button
+              onClick={() => setSelectedDate(todayString())}
+              className="text-xs text-blue-600 hover:text-blue-800 underline"
+            >
+              Về hôm nay
+            </button>
+          )}
+          <span className="text-xs text-gray-500 ml-1">
+            {isToday ? '(hôm nay)' : ''}
+          </span>
+        </div>
+
         {isLoading ? (
           <div className="text-center text-gray-500 py-16">Đang tải...</div>
         ) : !data ? null : (
@@ -54,7 +88,6 @@ export default function Patrol() {
                 <p className="text-sm text-gray-500 mb-1">Thiết bị đã quét</p>
                 <p className="text-4xl font-bold text-blue-600">{data.scanned_today}</p>
                 <p className="text-sm text-gray-400 mt-1">trên {data.total_devices} thiết bị</p>
-                {/* Progress bar */}
                 <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? 'bg-green-500' : pct >= 50 ? 'bg-blue-500' : 'bg-orange-400'}`}
@@ -71,7 +104,7 @@ export default function Patrol() {
               </div>
 
               <div className="bg-white rounded-xl shadow-sm p-6">
-                <p className="text-sm text-gray-500 mb-1">Tổng lần quét hôm nay</p>
+                <p className="text-sm text-gray-500 mb-1">Tổng lần quét ngày này</p>
                 <p className="text-4xl font-bold text-green-600">{data.scan_count_today}</p>
                 <p className="text-sm text-gray-400 mt-1">lần quét (tính cả trùng lặp)</p>
               </div>

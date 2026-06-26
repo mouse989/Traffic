@@ -2,7 +2,9 @@ import os
 import sys
 import secrets
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+TZ7 = timezone(timedelta(hours=7))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,8 +14,8 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.database import engine, Base, AsyncSessionLocal
-from app.models import user, scan_log, qr_device  # noqa: F401 – register tables
-from app.routers import auth, scans, users, qr_devices, patrol
+from app.models import user, scan_log, qr_device, device_field_config  # noqa: F401 – register tables
+from app.routers import auth, scans, users, qr_devices, patrol, device_fields
 
 
 async def _ensure_admin(db):
@@ -32,7 +34,7 @@ async def _ensure_admin(db):
             password_hash=hash_password(default_password),
             role=Role.ADMIN,
             is_active=True,
-            created_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            created_at=datetime.now(TZ7).strftime("%Y-%m-%d %H:%M:%S"),
         )
         db.add(admin)
         await db.commit()
@@ -45,13 +47,16 @@ async def lifespan(app: FastAPI):
     # Create tables (idempotent - safe to run every startup)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Migrate existing DBs: add can_upload_photo column if not present
-        try:
-            await conn.execute(text(
-                "ALTER TABLE users ADD COLUMN can_upload_photo INTEGER NOT NULL DEFAULT 0"
-            ))
-        except Exception:
-            pass  # Column already exists
+        # Migrate existing DBs: add columns if not present
+        for migration_sql in [
+            "ALTER TABLE users ADD COLUMN can_upload_photo INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE qr_devices ADD COLUMN device_type TEXT",
+            "ALTER TABLE qr_devices ADD COLUMN extra_data TEXT",
+        ]:
+            try:
+                await conn.execute(text(migration_sql))
+            except Exception:
+                pass  # Column already exists
 
     async with AsyncSessionLocal() as db:
         await _ensure_admin(db)
@@ -82,6 +87,7 @@ app.include_router(scans.router)
 app.include_router(users.router)
 app.include_router(qr_devices.router)
 app.include_router(patrol.router)
+app.include_router(device_fields.router)
 
 
 # Serve React frontend static files

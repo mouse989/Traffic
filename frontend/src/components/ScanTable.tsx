@@ -20,6 +20,7 @@ export default function ScanTable({ data, page, onPageChange }: Props) {
               <th className="px-4 py-3 text-left font-medium text-gray-600">Thời gian</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Người quét</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Mã QR</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Tên thiết bị</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Tọa độ</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">IP</th>
             </tr>
@@ -27,7 +28,7 @@ export default function ScanTable({ data, page, onPageChange }: Props) {
           <tbody className="divide-y divide-gray-100">
             {data.items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                   Không có dữ liệu
                 </td>
               </tr>
@@ -37,6 +38,9 @@ export default function ScanTable({ data, page, onPageChange }: Props) {
                   <td className="px-4 py-3 whitespace-nowrap font-mono text-xs">{scan.scanned_at}</td>
                   <td className="px-4 py-3 font-medium">{scan.username}</td>
                   <td className="px-4 py-3 font-mono text-xs">{scan.qr_code_id}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600">
+                    {scan.device_name ?? <span className="text-gray-400">—</span>}
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs">
                     {scan.latitude.toFixed(6)}, {scan.longitude.toFixed(6)}
                   </td>
