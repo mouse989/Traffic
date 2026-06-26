@@ -11,7 +11,8 @@ from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.database import engine, Base, AsyncSessionLocal
-from app.routers import auth, scans, users
+from app.models import user, scan_log, qr_device  # noqa: F401 – register tables
+from app.routers import auth, scans, users, qr_devices, patrol
 
 
 async def _ensure_admin(db):
@@ -71,6 +72,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(scans.router)
 app.include_router(users.router)
+app.include_router(qr_devices.router)
+app.include_router(patrol.router)
 
 
 # Serve React frontend static files

@@ -6,12 +6,16 @@ import { useAuthStore } from '../store/authStore'
 import ScanTable from '../components/ScanTable'
 import ScanMap from '../components/ScanMap'
 
+function todayStr() {
+  return new Date().toISOString().split('T')[0]
+}
+
 export default function Dashboard() {
   const { username, role, clear } = useAuthStore()
   const navigate = useNavigate()
   const [filterUsername, setFilterUsername] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [dateFrom, setDateFrom] = useState(todayStr)
+  const [dateTo, setDateTo] = useState(todayStr)
   const [page, setPage] = useState(1)
   const [showMap, setShowMap] = useState(true)
 
@@ -23,7 +27,7 @@ export default function Dashboard() {
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
         page,
-        page_size: 50,
+        page_size: 20,
       }),
     refetchInterval: 15_000,
   })
@@ -55,10 +59,22 @@ export default function Dashboard() {
             {role === 'ADMIN' && (
               <>
                 <button
+                  onClick={() => navigate('/qr-devices')}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  Quản lý QRCode
+                </button>
+                <button
+                  onClick={() => navigate('/patrol')}
+                  className="text-sm text-orange-600 hover:text-orange-800 font-medium"
+                >
+                  Tuần tra
+                </button>
+                <button
                   onClick={() => navigate('/users')}
                   className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                 >
-                  Quản lý người dùng
+                  Người dùng
                 </button>
                 <button
                   onClick={() => navigate('/mobile')}
@@ -124,10 +140,17 @@ export default function Dashboard() {
             </button>
             <button
               type="button"
-              onClick={() => { setFilterUsername(''); setDateFrom(''); setDateTo(''); setPage(1) }}
+              onClick={() => { setFilterUsername(''); setDateFrom(todayStr()); setDateTo(todayStr()); setPage(1) }}
               className="border px-4 py-2 rounded-lg text-sm hover:bg-gray-50 font-medium"
             >
-              Xóa bộ lọc
+              Hôm nay
+            </button>
+            <button
+              type="button"
+              onClick={() => { setFilterUsername(''); setDateFrom(''); setDateTo(''); setPage(1) }}
+              className="border px-4 py-2 rounded-lg text-sm hover:bg-gray-50 font-medium text-gray-500"
+            >
+              Tất cả
             </button>
             {isLoading && <span className="text-sm text-gray-500">Đang tải...</span>}
             {data && <span className="text-sm text-gray-500">Tổng: {data.total} bản ghi</span>}
@@ -145,7 +168,12 @@ export default function Dashboard() {
               {showMap ? 'Ẩn bản đồ' : 'Hiện bản đồ'}
             </button>
           </div>
-          {showMap && <ScanMap scans={data?.items ?? []} />}
+          {showMap && (
+            <ScanMap
+              scans={data?.items ?? []}
+              filterUsername={filterUsername || undefined}
+            />
+          )}
         </div>
 
         {/* Table */}

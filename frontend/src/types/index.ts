@@ -34,3 +34,31 @@ export interface UserCreate {
   password: string
   role: 'ADMIN' | 'STAFF'
 }
+
+export interface QrDevice {
+  id: string
+  device_id: string
+  name: string
+  location: string
+  notes: string | null
+  qr_text: string
+  created_at: string
+}
+
+export interface DeviceStatus {
+  id: string
+  device_id: string
+  name: string
+  location: string
+  qr_text: string
+  scanned: boolean
+  scan_count: number
+  last_scanned_at: string | null
+}
+
+export interface PatrolStats {
+  total_devices: number
+  scanned_today: number
+  scan_count_today: number
+  devices: DeviceStatus[]
+}

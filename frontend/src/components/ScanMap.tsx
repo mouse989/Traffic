@@ -3,7 +3,6 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import type { ScanLog } from '../types'
 
-// Fix default marker icons
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
@@ -17,9 +16,10 @@ L.Icon.Default.mergeOptions({
 
 interface Props {
   scans: ScanLog[]
+  filterUsername?: string
 }
 
-function FitBounds({ scans }: Props) {
+function FitBounds({ scans }: { scans: ScanLog[] }) {
   const map = useMap()
   useEffect(() => {
     if (scans.length === 0) return
@@ -29,10 +29,15 @@ function FitBounds({ scans }: Props) {
   return null
 }
 
-export default function ScanMap({ scans }: Props) {
-  const defaultCenter: [number, number] = scans.length > 0
-    ? [scans[0].latitude, scans[0].longitude]
-    : [10.7769, 106.7009] // Ho Chi Minh City default
+export default function ScanMap({ scans, filterUsername }: Props) {
+  const visible = filterUsername
+    ? scans.filter((s) => s.username === filterUsername)
+    : scans
+
+  const defaultCenter: [number, number] =
+    visible.length > 0
+      ? [visible[0].latitude, visible[0].longitude]
+      : [10.7769, 106.7009]
 
   return (
     <MapContainer center={defaultCenter} zoom={13} style={{ height: '400px', width: '100%' }} className="rounded-lg">
@@ -40,8 +45,8 @@ export default function ScanMap({ scans }: Props) {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitBounds scans={scans} />
-      {scans.map((scan) => (
+      <FitBounds scans={visible} />
+      {visible.map((scan) => (
         <Marker key={scan.id} position={[scan.latitude, scan.longitude]}>
           <Popup>
             <div className="text-sm">

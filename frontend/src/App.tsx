@@ -4,6 +4,8 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import MobileScanner from './pages/MobileScanner'
+import QrDevices from './pages/QrDevices'
+import Patrol from './pages/Patrol'
 import ProtectedRoute from './components/ProtectedRoute'
 
 const qc = new QueryClient({
@@ -34,7 +36,22 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          {/* Mobile web scanner - accessible to both STAFF and ADMIN */}
+          <Route
+            path="/qr-devices"
+            element={
+              <ProtectedRoute requireAdmin>
+                <QrDevices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patrol"
+            element={
+              <ProtectedRoute requireAdmin>
+                <Patrol />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/mobile"
             element={
