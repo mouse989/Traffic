@@ -18,11 +18,12 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(subject: str, role: str) -> str:
+def create_access_token(subject: str, role: str, can_upload_photo: bool = False) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": subject,
         "role": role,
+        "can_upload_photo": can_upload_photo,
         "type": "access",
         "exp": expire,
     }

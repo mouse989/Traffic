@@ -39,6 +39,7 @@ async def create_user(
         password_hash=hash_password(body.password),
         role=body.role,
         is_active=True,
+        can_upload_photo=body.can_upload_photo,
         created_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
     )
     db.add(user)
@@ -58,9 +59,12 @@ async def update_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if user.id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
-    user.is_active = body.is_active
+    if body.is_active is not None:
+        if user.id == current_user.id and not body.is_active:
+            raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+        user.is_active = body.is_active
+    if body.can_upload_photo is not None:
+        user.can_upload_photo = body.can_upload_photo
     await db.commit()
     await db.refresh(user)
     return UserRead.model_validate(user)

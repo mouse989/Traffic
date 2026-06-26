@@ -15,7 +15,7 @@ type Stage =
   | 'ERROR'       // Something went wrong
 
 export default function MobileScanner() {
-  const { username, role, clear } = useAuthStore()
+  const { username, role, clear, canUploadPhoto } = useAuthStore()
   const navigate = useNavigate()
   const [stage, setStage] = useState<Stage>('IDLE')
   const [pendingQrId, setPendingQrId] = useState<string | null>(null)
@@ -137,7 +137,11 @@ export default function MobileScanner() {
 
       {/* Camera Scanner */}
       <div className="px-3 pt-3 flex-shrink-0">
-        <QrCameraScanner onDetect={handleQrDetected} active={isScanning} />
+        <QrCameraScanner
+          onDetect={handleQrDetected}
+          active={isScanning}
+          canUploadPhoto={role === 'ADMIN' || canUploadPhoto}
+        />
       </div>
 
       {/* Status Panel */}

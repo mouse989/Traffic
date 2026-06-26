@@ -10,6 +10,7 @@ export default function UserForm({ onSubmit, onClose }: Props) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<'ADMIN' | 'STAFF'>('STAFF')
+  const [canUploadPhoto, setCanUploadPhoto] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -22,7 +23,7 @@ export default function UserForm({ onSubmit, onClose }: Props) {
     setLoading(true)
     setError('')
     try {
-      await onSubmit({ username: username.trim(), password, role })
+      await onSubmit({ username: username.trim(), password, role, can_upload_photo: canUploadPhoto })
       onClose()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -67,6 +68,17 @@ export default function UserForm({ onSubmit, onClose }: Props) {
               <option value="STAFF">STAFF - Nhân viên</option>
               <option value="ADMIN">ADMIN - Quản trị viên</option>
             </select>
+          </div>
+          <div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={canUploadPhoto}
+                onChange={(e) => setCanUploadPhoto(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600"
+              />
+              <span className="text-gray-700">Cho phép chọn ảnh từ thư viện (Mobile Scanner)</span>
+            </label>
           </div>
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <div className="flex gap-3 pt-2">

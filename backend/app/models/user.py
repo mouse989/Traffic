@@ -18,4 +18,5 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[Role] = mapped_column(SAEnum(Role), nullable=False, default=Role.STAFF)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    can_upload_photo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[str] = mapped_column(String(32), nullable=False)

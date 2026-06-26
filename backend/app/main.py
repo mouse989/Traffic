@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 
 from app.config import settings
 from app.database import engine, Base, AsyncSessionLocal
@@ -44,6 +45,13 @@ async def lifespan(app: FastAPI):
     # Create tables (idempotent - safe to run every startup)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Migrate existing DBs: add can_upload_photo column if not present
+        try:
+            await conn.execute(text(
+                "ALTER TABLE users ADD COLUMN can_upload_photo INTEGER NOT NULL DEFAULT 0"
+            ))
+        except Exception:
+            pass  # Column already exists
 
     async with AsyncSessionLocal() as db:
         await _ensure_admin(db)

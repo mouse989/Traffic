@@ -20,3 +20,8 @@ export async function resetPassword(id: string): Promise<{ temp_password: string
   const resp = await client.post<{ temp_password: string; message: string }>(`/api/users/${id}/reset-password`)
   return resp.data
 }
+
+export async function setUploadPhotoPermission(id: string, can_upload_photo: boolean): Promise<User> {
+  const resp = await client.patch<User>(`/api/users/${id}`, { can_upload_photo })
+  return resp.data
+}

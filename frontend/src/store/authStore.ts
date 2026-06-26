@@ -5,6 +5,7 @@ interface AuthState {
   refreshToken: string | null
   username: string | null
   role: 'ADMIN' | 'STAFF' | null
+  canUploadPhoto: boolean
   setTokens: (access: string, refresh: string) => void
   clear: () => void
 }
@@ -26,17 +27,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   refreshToken: initial?.refreshToken ?? null,
   username: initial?.username ?? null,
   role: initial?.role ?? null,
+  canUploadPhoto: initial?.canUploadPhoto ?? false,
 
   setTokens: (access, refresh) => {
     const payload = parseJwtPayload(access)
     const username = payload.sub as string
     const role = payload.role as 'ADMIN' | 'STAFF'
-    sessionStorage.setItem('auth', JSON.stringify({ accessToken: access, refreshToken: refresh, username, role }))
-    set({ accessToken: access, refreshToken: refresh, username, role })
+    const canUploadPhoto = (payload.can_upload_photo as boolean) ?? false
+    sessionStorage.setItem('auth', JSON.stringify({ accessToken: access, refreshToken: refresh, username, role, canUploadPhoto }))
+    set({ accessToken: access, refreshToken: refresh, username, role, canUploadPhoto })
   },
 
   clear: () => {
     sessionStorage.removeItem('auth')
-    set({ accessToken: null, refreshToken: null, username: null, role: null })
+    set({ accessToken: null, refreshToken: null, username: null, role: null, canUploadPhoto: false })
   },
 }))

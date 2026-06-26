@@ -9,6 +9,7 @@ export interface User {
   username: string
   role: 'ADMIN' | 'STAFF'
   is_active: boolean
+  can_upload_photo: boolean
   created_at: string
 }
 
@@ -33,6 +34,7 @@ export interface UserCreate {
   username: string
   password: string
   role: 'ADMIN' | 'STAFF'
+  can_upload_photo?: boolean
 }
 
 export interface QrDevice {

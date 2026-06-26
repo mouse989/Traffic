@@ -4,13 +4,16 @@ import { BrowserQRCodeReader, IScannerControls } from '@zxing/browser'
 interface Props {
   onDetect: (qrCodeId: string) => void
   active: boolean  // false = pause scanning (during challenge/submit flow)
+  canUploadPhoto?: boolean
 }
 
-export default function QrCameraScanner({ onDetect, active }: Props) {
+export default function QrCameraScanner({ onDetect, active, canUploadPhoto }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsRef = useRef<IScannerControls | null>(null)
   const readerRef = useRef<BrowserQRCodeReader | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
   const [torchOn, setTorchOn] = useState(false)
   const activeRef = useRef(active)
 
@@ -71,6 +74,20 @@ export default function QrCameraScanner({ onDetect, active }: Props) {
       setTorchOn(newState)
     } catch {
       // Torch not supported on this device/browser
+    }
+  }
+
+  async function handleImageFile(file: File) {
+    const url = URL.createObjectURL(file)
+    try {
+      const reader = new BrowserQRCodeReader()
+      const result = await reader.decodeFromImageUrl(url)
+      if (activeRef.current) onDetect(result.getText())
+    } catch {
+      setImageError('Không tìm thấy mã QR trong ảnh.')
+      setTimeout(() => setImageError(null), 3000)
+    } finally {
+      URL.revokeObjectURL(url)
     }
   }
 
@@ -141,6 +158,39 @@ export default function QrCameraScanner({ onDetect, active }: Props) {
       >
         {torchOn ? '🔦' : '💡'}
       </button>
+
+      {/* Image picker button (top-left) — only for permitted users */}
+      {canUploadPhoto && (
+        <>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute top-3 left-3 bg-black/50 text-white rounded-full p-2 text-lg"
+            title="Chọn ảnh từ thư viện"
+          >
+            🖼️
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleImageFile(file)
+              e.target.value = ''
+            }}
+          />
+        </>
+      )}
+
+      {/* Image decode error toast */}
+      {imageError && (
+        <div className="absolute bottom-10 left-0 right-0 flex justify-center px-4">
+          <span className="bg-red-800/90 text-white text-xs px-3 py-2 rounded-lg">
+            {imageError}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { getUsers, createUser, toggleUser, resetPassword } from '../api/users'
+import { getUsers, createUser, toggleUser, resetPassword, setUploadPhotoPermission } from '../api/users'
 import { useAuthStore } from '../store/authStore'
 import UserForm from '../components/UserForm'
 import type { UserCreate } from '../types'
@@ -34,6 +34,12 @@ export default function Users() {
       const user = users?.find((u) => u.id === id)
       if (user) setResetInfo({ username: user.username, password: data.temp_password })
     },
+  })
+
+  const uploadPhotoMutation = useMutation({
+    mutationFn: ({ id, can_upload_photo }: { id: string; can_upload_photo: boolean }) =>
+      setUploadPhotoPermission(id, can_upload_photo),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   })
 
   const handleCreate = async (data: UserCreate) => {
@@ -78,6 +84,7 @@ export default function Users() {
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Tên đăng nhập</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Vai trò</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Trạng thái</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Chọn ảnh</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Ngày tạo</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Hành động</th>
                 </tr>
@@ -104,9 +111,18 @@ export default function Users() {
                         {user.is_active ? 'Hoạt động' : 'Vô hiệu'}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        user.can_upload_photo
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {user.can_upload_photo ? '🖼️ Có quyền' : 'Không'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{user.created_at}</td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={() => toggleMutation.mutate({ id: user.id, is_active: !user.is_active })}
                           className={`text-xs px-2 py-1 rounded border ${
@@ -116,6 +132,16 @@ export default function Users() {
                           }`}
                         >
                           {user.is_active ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                        </button>
+                        <button
+                          onClick={() => uploadPhotoMutation.mutate({ id: user.id, can_upload_photo: !user.can_upload_photo })}
+                          className={`text-xs px-2 py-1 rounded border ${
+                            user.can_upload_photo
+                              ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                              : 'border-emerald-300 text-emerald-600 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {user.can_upload_photo ? 'Thu hồi quyền ảnh' : 'Cấp quyền ảnh'}
                         </button>
                         <button
                           onClick={() => resetMutation.mutate(user.id)}

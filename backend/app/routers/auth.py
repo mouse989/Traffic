@@ -23,7 +23,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
-    access_token = create_access_token(user.username, user.role.value)
+    access_token = create_access_token(user.username, user.role.value, user.can_upload_photo)
     refresh_token = create_refresh_token(user.username)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
@@ -39,6 +39,6 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
 
-    access_token = create_access_token(user.username, user.role.value)
+    access_token = create_access_token(user.username, user.role.value, user.can_upload_photo)
     new_refresh = create_refresh_token(user.username)
     return TokenResponse(access_token=access_token, refresh_token=new_refresh)
