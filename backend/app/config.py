@@ -15,9 +15,15 @@ class Settings(BaseSettings):
 
     @property
     def db_path(self) -> str:
+        # Explicit path takes priority (set this in Vibe / hosting env vars)
         custom = os.environ.get("DB_PATH")
         if custom:
             return custom
+        # Some hosting platforms provide a persistent data directory
+        data_dir = os.environ.get("DATA_DIR") or os.environ.get("VIBE_DATA_DIR")
+        if data_dir:
+            return os.path.join(data_dir, "traffic.db")
+        # PyInstaller binary: db file sits next to the exe
         if getattr(sys, "frozen", False):
             return os.path.join(os.path.dirname(sys.executable), "traffic.db")
         return os.path.join(os.getcwd(), "traffic.db")
