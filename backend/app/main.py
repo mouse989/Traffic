@@ -55,8 +55,41 @@ async def _run_migrations(conn):
 
     if dialect == "postgresql":
         await _run_migrations_postgres(conn)
+    elif dialect == "mysql":
+        await _run_migrations_mysql(conn)
     else:
         await _run_migrations_sqlite(conn)
+
+
+async def _run_migrations_mysql(conn):
+    """MySQL: check information_schema then ALTER TABLE if column missing."""
+    user_cols = [
+        ("can_upload_photo",      "BOOLEAN NOT NULL DEFAULT 0"),
+        ("can_access_qr_devices", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("can_access_patrol",     "BOOLEAN NOT NULL DEFAULT 0"),
+        ("can_access_dashboard",  "BOOLEAN NOT NULL DEFAULT 0"),
+    ]
+    for col, typedef in user_cols:
+        exists = (await conn.execute(
+            text("SELECT COUNT(*) FROM information_schema.COLUMNS "
+                 "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = :c"),
+            {"c": col},
+        )).scalar()
+        if not exists:
+            await conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {typedef}"))
+
+    device_cols = [
+        ("device_type", "TEXT"),
+        ("extra_data",  "TEXT"),
+    ]
+    for col, typedef in device_cols:
+        exists = (await conn.execute(
+            text("SELECT COUNT(*) FROM information_schema.COLUMNS "
+                 "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qr_devices' AND COLUMN_NAME = :c"),
+            {"c": col},
+        )).scalar()
+        if not exists:
+            await conn.execute(text(f"ALTER TABLE qr_devices ADD COLUMN {col} {typedef}"))
 
 
 async def _run_migrations_postgres(conn):

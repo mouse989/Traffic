@@ -37,17 +37,23 @@ class Settings(BaseSettings):
         """
         url = os.environ.get("DATABASE_URL")
         if url:
-            # Normalize: Vibe/Heroku-style postgres:// → SQLAlchemy async driver
+            # Normalize to SQLAlchemy async driver URLs
             if url.startswith("postgres://"):
                 url = url.replace("postgres://", "postgresql+asyncpg://", 1)
             elif url.startswith("postgresql://") and "+asyncpg" not in url:
                 url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            elif url.startswith("mysql://") and "+aiomysql" not in url:
+                url = url.replace("mysql://", "mysql+aiomysql://", 1)
             return url
         return f"sqlite+aiosqlite:///{self.db_path}"
 
     @property
     def is_postgres(self) -> bool:
         return self.database_url.startswith("postgresql")
+
+    @property
+    def is_mysql(self) -> bool:
+        return self.database_url.startswith("mysql")
 
 
 settings = Settings()
